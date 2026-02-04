@@ -12,8 +12,14 @@ IMPORTANT PRIVACY NOTE:
 
 import os
 import base64
+import io
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from PIL import Image
+import pillow_heif
+
+# Register HEIF opener with PIL to support HEIC images
+pillow_heif.register_heif_opener()
 
 load_dotenv()
 client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -27,9 +33,50 @@ def get_image_media_type(file_path: str) -> str:
         'jpeg': 'image/jpeg',
         'png': 'image/png',
         'gif': 'image/gif',
-        'webp': 'image/webp'
+        'webp': 'image/webp',
+        'heic': 'image/jpeg',  # HEIC converted to JPEG
+        'heif': 'image/jpeg'   # HEIF converted to JPEG
     }
     return media_types.get(extension, 'image/jpeg')
+
+
+def load_and_encode_image(file_path: str) -> tuple:
+    """
+    Load an image file and return base64-encoded data and media type.
+    Automatically converts HEIC/HEIF to JPEG for API compatibility.
+
+    Args:
+        file_path: Path to the image file
+
+    Returns:
+        Tuple of (base64_data, media_type)
+    """
+    extension = file_path.lower().split('.')[-1]
+
+    # Check if it's a HEIC/HEIF file that needs conversion
+    if extension in ['heic', 'heif']:
+        # Open with PIL (pillow-heif handles HEIC)
+        img = Image.open(file_path)
+
+        # Convert to RGB if necessary (HEIC can have different color modes)
+        if img.mode not in ('RGB', 'L'):
+            img = img.convert('RGB')
+
+        # Save to bytes as JPEG
+        buffer = io.BytesIO()
+        img.save(buffer, format='JPEG', quality=95)
+        buffer.seek(0)
+
+        # Encode to base64
+        image_data = base64.standard_b64encode(buffer.read()).decode('utf-8')
+        media_type = 'image/jpeg'
+    else:
+        # For other formats, read directly
+        with open(file_path, 'rb') as image_file:
+            image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
+        media_type = get_image_media_type(file_path)
+
+    return image_data, media_type
 
 
 def analyze_people_in_image(image_path: str, analysis_type: str = "general"):
@@ -78,11 +125,8 @@ Note: Provide respectful, objective descriptions only."""
 
     prompt = prompts.get(analysis_type, prompts["general"])
 
-    # Read and encode image
-    with open(image_path, 'rb') as image_file:
-        image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
-
-    media_type = get_image_media_type(image_path)
+    # Read and encode image (handles HEIC conversion)
+    image_data, media_type = load_and_encode_image(image_path)
 
     # Call Claude with vision
     message = client.messages.create(
@@ -133,10 +177,8 @@ def detect_faces(image_path: str):
 
 Provide objective, respectful descriptions only."""
 
-    with open(image_path, 'rb') as image_file:
-        image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
-
-    media_type = get_image_media_type(image_path)
+    # Load and encode image (handles HEIC conversion)
+    image_data, media_type = load_and_encode_image(image_path)
 
     message = client.messages.create(
         model="claude-sonnet-4-5-20250929",
@@ -182,10 +224,8 @@ def analyze_group_dynamics(image_path: str):
 5. What is the overall mood or atmosphere?
 6. Are there any notable group behaviors or activities?"""
 
-    with open(image_path, 'rb') as image_file:
-        image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
-
-    media_type = get_image_media_type(image_path)
+    # Load and encode image (handles HEIC conversion)
+    image_data, media_type = load_and_encode_image(image_path)
 
     message = client.messages.create(
         model="claude-sonnet-4-5-20250929",
@@ -280,9 +320,8 @@ def main():
                 result = analyze_group_dynamics(image_path)
             elif choice == "7":
                 question = input("Your question: ").strip()
-                with open(image_path, 'rb') as image_file:
-                    image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
-                media_type = get_image_media_type(image_path)
+                # Load and encode image (handles HEIC conversion)
+                image_data, media_type = load_and_encode_image(image_path)
 
                 message = client.messages.create(
                     model="claude-sonnet-4-5-20250929",

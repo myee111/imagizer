@@ -136,6 +136,7 @@ For personal photo organization, the agent can identify specific individuals:
 - PNG (.png)
 - GIF (.gif)
 - WebP (.webp)
+- HEIC (.heic, .heif) - Apple's High Efficiency Image Format (automatically converted)
 
 ## Extending the Agent
 

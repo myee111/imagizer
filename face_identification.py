@@ -20,9 +20,15 @@ How it works:
 import os
 import json
 import base64
+import io
 from pathlib import Path
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from PIL import Image
+import pillow_heif
+
+# Register HEIF opener with PIL to support HEIC images
+pillow_heif.register_heif_opener()
 
 load_dotenv()
 client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -39,9 +45,50 @@ def get_image_media_type(file_path: str) -> str:
         'jpeg': 'image/jpeg',
         'png': 'image/png',
         'gif': 'image/gif',
-        'webp': 'image/webp'
+        'webp': 'image/webp',
+        'heic': 'image/jpeg',  # HEIC converted to JPEG
+        'heif': 'image/jpeg'   # HEIF converted to JPEG
     }
     return media_types.get(extension, 'image/jpeg')
+
+
+def load_and_encode_image(file_path: str) -> tuple:
+    """
+    Load an image file and return base64-encoded data and media type.
+    Automatically converts HEIC/HEIF to JPEG for API compatibility.
+
+    Args:
+        file_path: Path to the image file
+
+    Returns:
+        Tuple of (base64_data, media_type)
+    """
+    extension = file_path.lower().split('.')[-1]
+
+    # Check if it's a HEIC/HEIF file that needs conversion
+    if extension in ['heic', 'heif']:
+        # Open with PIL (pillow-heif handles HEIC)
+        img = Image.open(file_path)
+
+        # Convert to RGB if necessary (HEIC can have different color modes)
+        if img.mode not in ('RGB', 'L'):
+            img = img.convert('RGB')
+
+        # Save to bytes as JPEG
+        buffer = io.BytesIO()
+        img.save(buffer, format='JPEG', quality=95)
+        buffer.seek(0)
+
+        # Encode to base64
+        image_data = base64.standard_b64encode(buffer.read()).decode('utf-8')
+        media_type = 'image/jpeg'
+    else:
+        # For other formats, read directly
+        with open(file_path, 'rb') as image_file:
+            image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
+        media_type = get_image_media_type(file_path)
+
+    return image_data, media_type
 
 
 def load_database():
@@ -82,10 +129,8 @@ def add_person_to_database(name: str, reference_image_path: str, notes: str = ""
 
     # Get facial features description for reference
     print(f"Analyzing reference image for {name}...")
-    with open(reference_image_path, 'rb') as img_file:
-        image_data = base64.standard_b64encode(img_file.read()).decode('utf-8')
-
-    media_type = get_image_media_type(reference_image_path)
+    # Load and encode image (handles HEIC conversion)
+    image_data, media_type = load_and_encode_image(reference_image_path)
 
     # Get detailed facial description
     message = client.messages.create(
@@ -161,11 +206,8 @@ def identify_person_in_image(image_path: str, confidence_threshold: str = "mediu
     if not os.path.exists(image_path):
         return {"error": f"Image not found at {image_path}"}
 
-    # Read the target image
-    with open(image_path, 'rb') as img_file:
-        target_image_data = base64.standard_b64encode(img_file.read()).decode('utf-8')
-
-    target_media_type = get_image_media_type(image_path)
+    # Read the target image (handles HEIC conversion)
+    target_image_data, target_media_type = load_and_encode_image(image_path)
 
     print(f"Analyzing image: {image_path}")
     print(f"Comparing against {len(db['people'])} people in database...")

@@ -6,9 +6,15 @@ A simple AI agent powered by Claude with tool use capabilities.
 import os
 import json
 import base64
+import io
 from pathlib import Path
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from PIL import Image
+import pillow_heif
+
+# Register HEIF opener with PIL to support HEIC images
+pillow_heif.register_heif_opener()
 
 # Load environment variables
 load_dotenv()
@@ -54,7 +60,7 @@ TOOLS = [
             "properties": {
                 "image_path": {
                     "type": "string",
-                    "description": "The file path to the image to analyze (supports jpg, png, gif, webp)"
+                    "description": "The file path to the image to analyze (supports jpg, png, gif, webp, heic)"
                 },
                 "question": {
                     "type": "string",
@@ -112,9 +118,50 @@ def get_image_media_type(file_path: str) -> str:
         '.jpeg': 'image/jpeg',
         '.png': 'image/png',
         '.gif': 'image/gif',
-        '.webp': 'image/webp'
+        '.webp': 'image/webp',
+        '.heic': 'image/jpeg',  # HEIC converted to JPEG
+        '.heif': 'image/jpeg'   # HEIF converted to JPEG
     }
     return media_types.get(extension, 'image/jpeg')
+
+
+def load_and_encode_image(file_path: str) -> tuple:
+    """
+    Load an image file and return base64-encoded data and media type.
+    Automatically converts HEIC/HEIF to JPEG for API compatibility.
+
+    Args:
+        file_path: Path to the image file
+
+    Returns:
+        Tuple of (base64_data, media_type)
+    """
+    extension = Path(file_path).suffix.lower()
+
+    # Check if it's a HEIC/HEIF file that needs conversion
+    if extension in ['.heic', '.heif']:
+        # Open with PIL (pillow-heif handles HEIC)
+        img = Image.open(file_path)
+
+        # Convert to RGB if necessary (HEIC can have different color modes)
+        if img.mode not in ('RGB', 'L'):
+            img = img.convert('RGB')
+
+        # Save to bytes as JPEG
+        buffer = io.BytesIO()
+        img.save(buffer, format='JPEG', quality=95)
+        buffer.seek(0)
+
+        # Encode to base64
+        image_data = base64.standard_b64encode(buffer.read()).decode('utf-8')
+        media_type = 'image/jpeg'
+    else:
+        # For other formats, read directly
+        with open(file_path, 'rb') as image_file:
+            image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
+        media_type = get_image_media_type(file_path)
+
+    return image_data, media_type
 
 
 def analyze_image_with_vision(image_path: str, question: str = None) -> str:
@@ -129,12 +176,8 @@ def analyze_image_with_vision(image_path: str, question: str = None) -> str:
         Analysis results as a string
     """
     try:
-        # Read and encode the image
-        with open(image_path, 'rb') as image_file:
-            image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
-
-        # Determine media type
-        media_type = get_image_media_type(image_path)
+        # Read and encode the image (handles HEIC conversion)
+        image_data, media_type = load_and_encode_image(image_path)
 
         # Create the prompt
         if question:
@@ -194,11 +237,8 @@ def analyze_people_with_vision(image_path: str, analysis_type: str, custom_quest
         Analysis results as a string
     """
     try:
-        # Read and encode the image
-        with open(image_path, 'rb') as image_file:
-            image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
-
-        media_type = get_image_media_type(image_path)
+        # Read and encode the image (handles HEIC conversion)
+        image_data, media_type = load_and_encode_image(image_path)
 
         # Create prompts based on analysis type
         prompts = {
@@ -303,16 +343,13 @@ The database stores reference images and facial descriptions to enable identific
     if not db.get("people"):
         return "Face database is empty. Add people using: python face_identification.py"
 
-    # Read target image
+    # Read target image (handles HEIC conversion)
     try:
-        with open(image_path, 'rb') as img_file:
-            target_image_data = base64.standard_b64encode(img_file.read()).decode('utf-8')
+        target_image_data, target_media_type = load_and_encode_image(image_path)
     except FileNotFoundError:
         return f"Error: Image not found at {image_path}"
     except Exception as e:
         return f"Error reading image: {str(e)}"
-
-    target_media_type = get_image_media_type(image_path)
 
     # Build comparison prompt
     people_descriptions = "\n\n".join([
@@ -425,9 +462,8 @@ def run_agent(user_message: str, image_path: str = None, max_turns: int = 10) ->
     # Build initial message content
     if image_path:
         try:
-            with open(image_path, 'rb') as image_file:
-                image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
-            media_type = get_image_media_type(image_path)
+            # Load and encode image (handles HEIC conversion)
+            image_data, media_type = load_and_encode_image(image_path)
 
             content = [
                 {

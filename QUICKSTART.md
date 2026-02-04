@@ -199,6 +199,7 @@ See `PEOPLE_RECOGNITION_GUIDE.md` for full ethical guidelines.
 - PNG (.png)
 - GIF (.gif)
 - WebP (.webp)
+- HEIC (.heic, .heif) - iPhone/iPad photos automatically converted
 
 ## Tips for Best Results
 
