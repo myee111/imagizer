@@ -12,20 +12,43 @@ A powerful AI agent built with Python and the Anthropic Claude API. This agent c
 - **Multi-turn Conversations**: Handles complex tasks requiring multiple steps
 - **Interactive Mode**: Chat with the agent in real-time
 
-## Setup
+## Quick Start
+
+### Using the Launcher (Recommended)
+
+The easiest way to get started:
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Configure your provider (see Provider Configuration below)
+cp .env.example .env
+# Edit .env with your settings
+
+# 3. Run the launcher
+./run.sh
+```
+
+The launcher provides an interactive menu to:
+- Run any of the available scripts
+- Test your setup
+- Authenticate with Vertex AI (if using Google Cloud)
+
+### Manual Setup
 
 1. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Set up your API key:
+2. Set up your API configuration:
 ```bash
 cp .env.example .env
-# Edit .env and add your Anthropic API key
+# Edit .env and configure your provider (see below)
 ```
 
-3. Get an API key from [Anthropic Console](https://console.anthropic.com/)
+3. Choose your provider and follow the setup steps below
 
 ### Provider Configuration
 
@@ -47,29 +70,104 @@ ANTHROPIC_API_KEY=sk-ant-...
 ```bash
 pip install 'anthropic[vertex]' google-cloud-aiplatform
 ```
-3. Authenticate with Google Cloud:
-```bash
-gcloud auth application-default login
-```
+
+3. **Authenticate with Google Cloud** (Use the launcher for guided setup):
+
+   **Using the launcher (recommended):**
+   ```bash
+   ./run.sh
+   # Select option 6: Authenticate with Vertex AI
+   ```
+
+   The launcher will:
+   - Check your authentication status
+   - Verify Vertex AI API is enabled
+   - Display quota information
+   - Guide you through authentication with quota project setup
+
+   **Manual authentication:**
+   ```bash
+   # Basic authentication
+   gcloud auth application-default login
+
+   # With quota project (recommended)
+   gcloud auth application-default login --quota-project-id=your-project-id
+   ```
+
 4. Configure your `.env` file:
 ```bash
 CLAUDE_PROVIDER=vertex
 VERTEX_PROJECT_ID=your-gcp-project-id
-VERTEX_REGION=us-central1
+VERTEX_REGION=us-east5  # or your preferred region
 ```
+
+**About Quota Projects:**
+The quota project determines which GCP project is billed for API usage and which project's quotas are consumed. This is typically the same as your Vertex AI project but can be different for centralized billing scenarios.
 
 For more details on Vertex AI setup, see [Anthropic's Vertex AI documentation](https://docs.anthropic.com/en/api/claude-on-vertex-ai).
 
 ## Usage
 
-### Running the Main Agent
+### Using the Launcher Script (Recommended)
 
-Run the agent:
+The easiest way to run any script:
+
 ```bash
-python agent.py
+./run.sh
 ```
 
-The script will run a few examples, then enter interactive mode where you can chat with the agent.
+The launcher provides an interactive menu with the following options:
+
+**1. Image Recognition** - Analyze any image
+- Interactive mode for image analysis
+- Ask questions about images
+- OCR, object detection, scene analysis
+
+**2. People Recognition** - Detect and analyze people
+- Count people in images
+- Analyze facial expressions and emotions
+- Describe activities and group dynamics
+
+**3. Face Identification** - Identify known people
+- Build a personal database (with consent)
+- Identify family and friends in photos
+- Organize photo collections
+
+**4. AI Agent** - Full capabilities
+- Autonomous tool use
+- Multi-turn reasoning
+- Interactive chat mode
+- Image analysis with other tools
+
+**5. Test Interface** - Verify setup
+- Check all dependencies
+- Verify authentication
+- Test module imports
+
+**6. Authenticate with Vertex AI** - GCP authentication
+- Check authentication status
+- View API quotas and limits
+- Configure quota project
+- Enable Vertex AI API
+
+### Running Scripts Directly
+
+You can also run scripts directly:
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Run the AI agent
+python agent.py
+
+# Or any other script
+python image_recognition_example.py
+```
+
+### AI Agent Interactive Mode
+
+The agent will run a few examples, then enter interactive mode where you can chat with the agent.
 
 In interactive mode, you can analyze images using:
 ```
@@ -78,7 +176,7 @@ image:/path/to/image.jpg What objects are in this image?
 
 ### Image Recognition Examples
 
-For dedicated image recognition capabilities, run:
+Run via launcher (`./run.sh` → option 1) or directly:
 ```bash
 python image_recognition_example.py
 ```
@@ -92,7 +190,7 @@ This provides interactive image analysis where you can:
 
 ### People Recognition
 
-For specialized people detection and analysis, run:
+Run via launcher (`./run.sh` → option 2) or directly:
 ```bash
 python people_recognition.py
 ```
@@ -109,7 +207,7 @@ This provides dedicated people analysis including:
 
 ### Face Identification (Personal Photos)
 
-For identifying specific individuals in your personal photos (with consent):
+Run via launcher (`./run.sh` → option 3) or directly:
 ```bash
 python face_identification.py
 ```
@@ -210,6 +308,8 @@ Then implement the tool in the `execute_tool()` function.
 
 ## Architecture
 
+### High-Level Flow
+
 ```
 User Input
     ↓
@@ -220,6 +320,76 @@ Agent Loop ────────┘
 Final Response
 ```
 
+### Provider Architecture
+
+The project uses a factory pattern for Claude client initialization:
+
+```
+Application Scripts
+    ↓
+[claude_client.py] ← Factory Pattern
+    ├─→ Anthropic API Client
+    └─→ Vertex AI Client
+        ↓
+    Shared Utilities
+    - load_and_encode_image()
+    - get_image_media_type()
+```
+
+**Benefits:**
+- Single source of truth for client initialization
+- Reduced code duplication (~180 lines)
+- Easy provider switching via environment variable
+- Consistent error handling across all scripts
+- Centralized image processing utilities
+
+**Files:**
+- `claude_client.py` - Factory and utilities (NEW)
+- `agent.py` - Main agentic loop
+- `image_recognition_example.py` - Image analysis
+- `people_recognition.py` - People detection
+- `face_identification.py` - Face ID system
+- `run.sh` - Interactive launcher
+
+## Troubleshooting
+
+### Vertex AI Issues
+
+**Authentication Errors:**
+- Run `./run.sh` and select option 6 to check authentication status
+- Ensure you've run: `gcloud auth application-default login --quota-project-id=your-project-id`
+- Verify your account has access to the project
+
+**API Not Enabled:**
+- The launcher (option 6) will detect this and offer to enable it
+- Or manually enable: `gcloud services enable aiplatform.googleapis.com`
+
+**Quota Errors:**
+- Use the launcher (option 6) to view your quotas
+- Visit the [GCP Console Quotas page](https://console.cloud.google.com/apis/api/aiplatform.googleapis.com/quotas)
+- Request quota increases if needed
+
+**Region Issues:**
+- Verify `VERTEX_REGION` in `.env` matches an available region
+- Common regions: `us-east5`, `us-central1`, `europe-west1`
+- See [Vertex AI locations](https://cloud.google.com/vertex-ai/docs/general/locations) for full list
+
+**Project Mismatch:**
+- The launcher will detect if your gcloud project doesn't match `.env`
+- Run: `gcloud config set project your-project-id`
+
+### General Issues
+
+**Module Import Errors:**
+- Ensure virtual environment is activated: `source venv/bin/activate`
+- Reinstall dependencies: `pip install -r requirements.txt`
+- For Vertex AI: `pip install 'anthropic[vertex]' google-cloud-aiplatform`
+
+**Image Format Errors:**
+- Supported formats: JPG, PNG, GIF, WebP, HEIC
+- HEIC files are automatically converted to JPEG
+- Ensure image files exist at the specified path
+
 ## Best Practices
 
 - Keep tool descriptions clear and specific
@@ -227,6 +397,9 @@ Final Response
 - Set reasonable `max_turns` to prevent infinite loops
 - Log tool usage for debugging
 - Validate tool inputs before execution
+- Use the launcher script for easier management
+- Regularly check quotas when using Vertex AI
+- Keep your `.env` file secure and never commit it to version control
 
 ## License
 

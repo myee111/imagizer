@@ -5,9 +5,16 @@
 ### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
+
+# For Vertex AI (optional):
+pip install 'anthropic[vertex]' google-cloud-aiplatform
 ```
 
-### 2. Set Up API Key
+### 2. Set Up Provider
+
+Choose between Anthropic API or Google Vertex AI:
+
+**Option A: Anthropic API (Default)**
 ```bash
 # Copy the example environment file
 cp .env.example .env
@@ -18,12 +25,33 @@ cp .env.example .env
 
 Your `.env` file should look like:
 ```
+CLAUDE_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-api03-...
+```
+
+**Option B: Google Vertex AI**
+```bash
+cp .env.example .env
+
+# Edit .env for Vertex AI:
+# CLAUDE_PROVIDER=vertex
+# VERTEX_PROJECT_ID=your-project-id
+# VERTEX_REGION=us-east5
+```
+
+Then authenticate:
+```bash
+./run.sh
+# Select option 6: Authenticate with Vertex AI
 ```
 
 ### 3. Test the Agent
 ```bash
-python demo.py
+# Using the launcher (recommended):
+./run.sh
+
+# Or run directly:
+python agent.py
 ```
 
 ## What Can This Agent Do?
@@ -56,7 +84,20 @@ python demo.py
 
 ## Running the Agent
 
-### Option 1: Main Agent (Recommended)
+### Option 0: Launcher Script (Easiest)
+```bash
+./run.sh
+```
+
+Interactive menu with all options:
+1. Image Recognition
+2. People Recognition
+3. Face Identification
+4. AI Agent
+5. Test Interface
+6. Authenticate with Vertex AI
+
+### Option 1: Main Agent
 ```bash
 python agent.py
 ```
@@ -164,13 +205,17 @@ You don't need to specify which tool to use!
 
 | File | Purpose |
 |------|---------|
+| `run.sh` | **Interactive launcher** - Easy menu for all scripts |
+| `claude_client.py` | **Provider factory** - Anthropic & Vertex AI support |
 | `agent.py` | Main agentic system with all tools |
 | `people_recognition.py` | Dedicated people analysis tool |
 | `image_recognition_example.py` | General image analysis tool |
 | `face_identification.py` | Face identification for personal photos |
+| `test_interface.py` | Verify setup and dependencies |
 | `demo.py` | Quick demonstration |
 | `example_people_recognition.py` | Code examples for people recognition |
 | `example_face_identification.py` | Code examples for face identification |
+| `QUICKSTART.md` | This file - quick start guide |
 | `PEOPLE_RECOGNITION_GUIDE.md` | Complete people recognition documentation |
 | `FACE_IDENTIFICATION_GUIDE.md` | Complete face identification documentation |
 | `README.md` | Full project documentation |
@@ -214,7 +259,19 @@ See `PEOPLE_RECOGNITION_GUIDE.md` for full ethical guidelines.
 ### Error: "ANTHROPIC_API_KEY not found"
 - Make sure you created the `.env` file
 - Check that your API key is correct
+- Verify `CLAUDE_PROVIDER=anthropic` in `.env`
 - Don't commit `.env` to git (it's in `.gitignore`)
+
+### Error: "VERTEX_PROJECT_ID not found"
+- Set `CLAUDE_PROVIDER=vertex` in `.env`
+- Add `VERTEX_PROJECT_ID` and `VERTEX_REGION` to `.env`
+- Run `./run.sh` → option 6 to authenticate
+
+### Authentication Issues (Vertex AI)
+- Run `./run.sh` → option 6 to check status
+- Ensure Vertex AI API is enabled
+- Check quota limits in GCP Console
+- Verify project permissions
 
 ### Error: "Image file not found"
 - Use absolute paths or paths relative to where you run the script
@@ -224,6 +281,11 @@ See `PEOPLE_RECOGNITION_GUIDE.md` for full ethical guidelines.
 - Ensure people are clearly visible in the image
 - Check lighting and image quality
 - Try asking: "Are there any people in this image?"
+
+### Provider Issues
+- Run `./run.sh` → option 5 to test your setup
+- Check which provider is active: `grep CLAUDE_PROVIDER .env`
+- See README.md for full provider configuration details
 
 ## Next Steps
 

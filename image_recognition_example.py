@@ -4,10 +4,11 @@ Example script demonstrating image recognition capabilities.
 """
 
 import os
-from claude_client import create_claude_client, load_and_encode_image
+from claude_client import create_claude_client, load_and_encode_image, get_model_name
 
-# Initialize Claude client (supports Anthropic API and Vertex AI)
+# Initialize Claude client (supports Anthropic API, Vertex AI, and Gemini)
 client = create_claude_client()
+MODEL_NAME = get_model_name()
 
 
 def analyze_image(image_path: str, prompt: str = "What's in this image?"):
@@ -26,7 +27,7 @@ def analyze_image(image_path: str, prompt: str = "What's in this image?"):
 
     # Create message with image
     message = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
+        model=MODEL_NAME,
         max_tokens=2048,
         messages=[
             {

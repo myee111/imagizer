@@ -20,10 +20,11 @@ How it works:
 import os
 import json
 from pathlib import Path
-from claude_client import create_claude_client, load_and_encode_image
+from claude_client import create_claude_client, load_and_encode_image, get_model_name
 
-# Initialize Claude client (supports Anthropic API and Vertex AI)
+# Initialize Claude client (supports Anthropic API, Vertex AI, and Gemini)
 client = create_claude_client()
+MODEL_NAME = get_model_name()
 
 # Database file for storing known people
 DATABASE_FILE = "face_database.json"
@@ -72,7 +73,7 @@ def add_person_to_database(name: str, reference_image_path: str, notes: str = ""
 
     # Get detailed facial description
     message = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
+        model=MODEL_NAME,
         max_tokens=1024,
         messages=[{
             "role": "user",
@@ -180,7 +181,7 @@ Be thorough and careful with identification. Only claim high confidence if featu
 
     # Call Claude to compare
     message = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
+        model=MODEL_NAME,
         max_tokens=2048,
         messages=[{
             "role": "user",

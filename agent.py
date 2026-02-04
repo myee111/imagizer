@@ -6,10 +6,11 @@ A simple AI agent powered by Claude with tool use capabilities.
 import os
 import json
 from pathlib import Path
-from claude_client import create_claude_client, load_and_encode_image
+from claude_client import create_claude_client, load_and_encode_image, get_model_name
 
-# Initialize Claude client (supports Anthropic API and Vertex AI)
+# Initialize Claude client (supports Anthropic API, Vertex AI, and Gemini)
 client = create_claude_client()
+MODEL_NAME = get_model_name()
 
 # Define tools that the agent can use
 TOOLS = [
@@ -122,7 +123,7 @@ def analyze_image_with_vision(image_path: str, question: str = None) -> str:
 
         # Call Claude with vision
         message = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model=MODEL_NAME,
             max_tokens=2048,
             messages=[
                 {
@@ -209,7 +210,7 @@ def analyze_people_with_vision(image_path: str, analysis_type: str, custom_quest
 
         # Call Claude with vision
         message = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model=MODEL_NAME,
             max_tokens=2048,
             messages=[
                 {
@@ -313,7 +314,7 @@ Be careful and thorough. Only claim high confidence if features clearly match.""
     # Call Claude for identification
     try:
         message = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model=MODEL_NAME,
             max_tokens=2048,
             messages=[{
                 "role": "user",
@@ -429,7 +430,7 @@ def run_agent(user_message: str, image_path: str = None, max_turns: int = 10) ->
     for turn in range(max_turns):
         # Call Claude with tools
         response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model=MODEL_NAME,
             max_tokens=4096,
             tools=TOOLS,
             messages=messages
