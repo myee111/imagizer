@@ -4,7 +4,12 @@
       "Bash(source:*)",
       "Bash(pip install:*)",
       "Bash(python3 -m py_compile:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(python3 -m venv:*)",
+      "Bash(ls:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(python3:*)"
     ]
   }
 }

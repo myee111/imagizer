@@ -27,6 +27,39 @@ cp .env.example .env
 
 3. Get an API key from [Anthropic Console](https://console.anthropic.com/)
 
+### Provider Configuration
+
+This project supports two Claude API providers:
+
+**Option 1: Anthropic API (Default)**
+
+1. Get an API key from [Anthropic Console](https://console.anthropic.com/)
+2. Add to your `.env` file:
+```bash
+CLAUDE_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+**Option 2: Google Vertex AI**
+
+1. Set up a Google Cloud project with Vertex AI enabled
+2. Install additional dependencies:
+```bash
+pip install 'anthropic[vertex]' google-cloud-aiplatform
+```
+3. Authenticate with Google Cloud:
+```bash
+gcloud auth application-default login
+```
+4. Configure your `.env` file:
+```bash
+CLAUDE_PROVIDER=vertex
+VERTEX_PROJECT_ID=your-gcp-project-id
+VERTEX_REGION=us-central1
+```
+
+For more details on Vertex AI setup, see [Anthropic's Vertex AI documentation](https://docs.anthropic.com/en/api/claude-on-vertex-ai).
+
 ## Usage
 
 ### Running the Main Agent

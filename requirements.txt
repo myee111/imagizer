@@ -2,3 +2,6 @@ anthropic>=0.18.0
 python-dotenv>=1.0.0
 pillow>=10.0.0
 pillow-heif>=0.13.0
+
+# Vertex AI support (optional - only if using CLAUDE_PROVIDER=vertex)
+# Install with: pip install 'anthropic[vertex]' google-cloud-aiplatform

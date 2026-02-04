@@ -19,10 +19,10 @@ except Exception as e:
     exit(1)
 
 try:
-    from anthropic import Anthropic
-    print("   ✅ Anthropic library imported successfully")
+    from claude_client import create_claude_client
+    print("   ✅ Claude client module imported successfully")
 except Exception as e:
-    print(f"   ❌ Error importing anthropic: {e}")
+    print(f"   ❌ Error importing claude_client: {e}")
     exit(1)
 
 try:
