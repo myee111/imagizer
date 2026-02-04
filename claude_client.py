@@ -296,41 +296,134 @@ class GeminiWrapper:
         return self.Messages(self)
 
 
-def load_and_encode_image(file_path: str) -> Tuple[str, str]:
+def load_and_encode_image(file_path: str, max_size_mb: float = 5.0, max_dimension: int = 8000) -> Tuple[str, str]:
     """
     Load an image file and return base64-encoded data and media type.
     Automatically converts HEIC/HEIF to JPEG for API compatibility.
+    Validates image size and dimensions before processing.
 
     Args:
         file_path: Path to the image file
+        max_size_mb: Maximum file size in MB (default: 5.0)
+        max_dimension: Maximum width or height in pixels (default: 8000)
 
     Returns:
         Tuple of (base64_encoded_data, media_type)
 
     Raises:
         FileNotFoundError: If image file doesn't exist
+        ValueError: If image exceeds size or dimension limits
         Exception: If image cannot be loaded or encoded
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Image file not found: {file_path}")
+
+    # Check file size before processing
+    file_size_bytes = os.path.getsize(file_path)
+    file_size_mb = file_size_bytes / (1024 * 1024)
+
+    if file_size_mb > max_size_mb:
+        raise ValueError(
+            f"Image file is too large: {file_size_mb:.2f}MB (max: {max_size_mb}MB)\n"
+            f"Suggestions:\n"
+            f"  - Compress the image before uploading\n"
+            f"  - Resize to smaller dimensions\n"
+            f"  - Convert to a more efficient format (e.g., JPEG with lower quality)\n"
+            f"  - Use an image editing tool to reduce file size"
+        )
 
     extension = file_path.lower().split('.')[-1]
 
     if extension in ['heic', 'heif']:
         # Convert HEIC/HEIF to JPEG
         img = Image.open(file_path)
+
+        # Check dimensions
+        width, height = img.size
+        if width > max_dimension or height > max_dimension:
+            # Resize to fit within max_dimension while maintaining aspect ratio
+            print(f"⚠️  Image dimensions ({width}x{height}) exceed maximum ({max_dimension}px)")
+            print(f"   Resizing to fit within {max_dimension}px...")
+            img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+            width, height = img.size
+            print(f"   New dimensions: {width}x{height}")
+
         if img.mode not in ('RGB', 'L'):
             img = img.convert('RGB')
         buffer = io.BytesIO()
         img.save(buffer, format='JPEG', quality=95)
         buffer.seek(0)
-        image_data = base64.standard_b64encode(buffer.read()).decode('utf-8')
+        encoded_data = buffer.read()
+
+        # Check encoded size
+        encoded_size_mb = len(encoded_data) / (1024 * 1024)
+        if encoded_size_mb > max_size_mb:
+            # Try with lower quality
+            print(f"⚠️  Encoded image too large ({encoded_size_mb:.2f}MB), reducing quality...")
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=85)
+            buffer.seek(0)
+            encoded_data = buffer.read()
+            encoded_size_mb = len(encoded_data) / (1024 * 1024)
+
+            if encoded_size_mb > max_size_mb:
+                raise ValueError(
+                    f"Image still too large after compression: {encoded_size_mb:.2f}MB (max: {max_size_mb}MB)\n"
+                    f"Please use a smaller image or reduce dimensions further."
+                )
+            print(f"   Compressed to {encoded_size_mb:.2f}MB")
+
+        image_data = base64.standard_b64encode(encoded_data).decode('utf-8')
         media_type = 'image/jpeg'
     else:
         # Handle standard image formats
-        with open(file_path, 'rb') as image_file:
-            image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
+        # First check dimensions
+        img = Image.open(file_path)
+        width, height = img.size
+
+        if width > max_dimension or height > max_dimension:
+            print(f"⚠️  Image dimensions ({width}x{height}) exceed maximum ({max_dimension}px)")
+            print(f"   Resizing to fit within {max_dimension}px...")
+            img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+            width, height = img.size
+            print(f"   New dimensions: {width}x{height}")
+
+            # Save resized image to buffer
+            buffer = io.BytesIO()
+            format_map = {
+                'jpg': 'JPEG', 'jpeg': 'JPEG',
+                'png': 'PNG', 'gif': 'GIF', 'webp': 'WEBP'
+            }
+            img_format = format_map.get(extension, 'JPEG')
+            if img_format == 'JPEG' and img.mode not in ('RGB', 'L'):
+                img = img.convert('RGB')
+            img.save(buffer, format=img_format, quality=95)
+            buffer.seek(0)
+            encoded_data = buffer.read()
+        else:
+            # Use original file
+            with open(file_path, 'rb') as image_file:
+                encoded_data = image_file.read()
+
+        # Check encoded size
+        encoded_size_mb = len(encoded_data) / (1024 * 1024)
+        if encoded_size_mb > max_size_mb:
+            raise ValueError(
+                f"Image is too large: {encoded_size_mb:.2f}MB (max: {max_size_mb}MB)\n"
+                f"Dimensions: {width}x{height}\n"
+                f"Please compress or resize the image before uploading."
+            )
+
+        image_data = base64.standard_b64encode(encoded_data).decode('utf-8')
         media_type = get_image_media_type(extension)
+
+    # Final check on base64 encoded size
+    base64_size_mb = len(image_data) / (1024 * 1024)
+    if base64_size_mb > max_size_mb * 1.5:  # Base64 adds ~33% overhead, allow some buffer
+        raise ValueError(
+            f"Encoded image size ({base64_size_mb:.2f}MB) exceeds limits.\n"
+            f"Please use a smaller image."
+        )
 
     return image_data, media_type
 
